@@ -1,0 +1,20 @@
+{
+  "name": "eaglebox-saas-backend",
+  "version": "1.0.0",
+  "description": "EagleBox SaaS backend — HTTP API + relay server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "b4a": "^1.6.6",
+    "cors": "^2.8.5",
+    "express": "^4.19.0",
+    "hyperswarm": "^4.7.0",
+    "multer": "^2.1.1",
+    "sodium-native": "^4.1.0",
+    "uuid": "^9.0.0"
+  }
+}

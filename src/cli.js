@@ -12,9 +12,9 @@ import chalk from 'chalk'
 import ora from 'ora'
 import path from 'path'
 import fs from 'fs'
-import { SwarmManager } from './network.js'
-import { FileSender, FileReceiver } from './transfer.js'
-import { generateIdentityKeypair, keyToShareCode } from './crypto.js'
+import { SwarmManager } from './core/network.js'
+import { FileSender, FileReceiver } from './core/transfer.js'
+import { generateIdentityKeypair, keyToShareCode } from './core/crypto.js'
 
 const EAGLEBOX_BANNER = `
 ${chalk.bold.cyan('███████╗ █████╗  ██████╗ ██╗     ███████╗██████╗  ██████╗ ██╗  ██╗')}

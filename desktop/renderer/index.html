@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" />
+  <title>EagleBox</title>
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --border:   #334155;
+      --accent:   #38bdf8;
+      --accent2:  #818cf8;
+      --green:    #34d399;
+      --red:      #f87171;
+      --yellow:   #fbbf24;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   10px;
+    }
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 14px; }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    #app { display: flex; height: 100vh; }
+    nav  { width: 200px; background: #0a1120; border-right: 1px solid var(--border);
+           display: flex; flex-direction: column; padding: 16px 0; flex-shrink: 0; }
+    main { flex: 1; overflow-y: auto; padding: 28px; }
+
+    /* ── Nav ──────────────────────────────────────────────────────────────── */
+    .nav-logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border);
+                margin-bottom: 8px; }
+    .nav-logo h1 { font-size: 18px; font-weight: 700; color: var(--accent);
+                   letter-spacing: 1px; }
+    .nav-logo span { font-size: 10px; color: var(--muted); text-transform: uppercase;
+                     letter-spacing: 2px; }
+    .nav-btn { display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+               cursor: pointer; border: none; background: none; color: var(--muted);
+               font-size: 13px; width: 100%; text-align: left; transition: all .15s; }
+    .nav-btn:hover { color: var(--text); background: rgba(255,255,255,.04); }
+    .nav-btn.active { color: var(--accent); background: rgba(56,189,248,.08);
+                      border-left: 3px solid var(--accent); }
+    .nav-btn .icon { font-size: 16px; }
+
+    /* ── Panels ───────────────────────────────────────────────────────────── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+    h2 { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
+    h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+
+    /* ── Cards ────────────────────────────────────────────────────────────── */
+    .card { background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+
+    /* ── Drop zone ────────────────────────────────────────────────────────── */
+    .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius);
+                 padding: 40px; text-align: center; cursor: pointer; transition: all .2s;
+                 margin-bottom: 16px; }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent);
+                                             background: rgba(56,189,248,.05); }
+    .drop-zone .dz-icon { font-size: 36px; margin-bottom: 10px; }
+    .drop-zone p { color: var(--muted); }
+    .drop-zone strong { color: var(--text); }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+           border-radius: 6px; border: none; cursor: pointer; font-size: 13px;
+           font-weight: 500; transition: all .15s; }
+    .btn-primary { background: var(--accent); color: #0f172a; }
+    .btn-primary:hover { background: #7dd3fc; }
+    .btn-secondary { background: var(--surface); color: var(--text);
+                     border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger  { background: rgba(248,113,113,.15); color: var(--red);
+                   border: 1px solid rgba(248,113,113,.3); }
+    .btn-danger:hover { background: rgba(248,113,113,.25); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Input ────────────────────────────────────────────────────────────── */
+    .input { width: 100%; padding: 9px 12px; background: var(--bg); border: 1px solid var(--border);
+             border-radius: 6px; color: var(--text); font-size: 14px; outline: none;
+             transition: border-color .15s; }
+    .input:focus { border-color: var(--accent); }
+    .input-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .input-row .input { flex: 1; }
+
+    /* ── Share code display ───────────────────────────────────────────────── */
+    .share-code { background: var(--bg); border: 1px solid var(--green);
+                  border-radius: 6px; padding: 12px; font-family: monospace;
+                  font-size: 12px; color: var(--green); word-break: break-all;
+                  margin: 12px 0; }
+
+    /* ── Progress bar ─────────────────────────────────────────────────────── */
+    .progress-wrap { margin: 8px 0; }
+    .progress-label { display: flex; justify-content: space-between;
+                      font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+                     transition: width .3s; border-radius: 3px; }
+
+    /* ── File list ────────────────────────────────────────────────────────── */
+    .file-row { display: flex; align-items: center; gap: 12px; padding: 10px 0;
+                border-bottom: 1px solid var(--border); }
+    .file-row:last-child { border-bottom: none; }
+    .file-icon { font-size: 20px; flex-shrink: 0; }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .file-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ── Browse/index table ───────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase;
+         letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--border); }
+    td { padding: 10px 12px; border-bottom: 1px solid rgba(51,65,85,.5); font-size: 13px; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; }
+    .badge-blue { background: rgba(56,189,248,.15); color: var(--accent); }
+    .badge-green { background: rgba(52,211,153,.15); color: var(--green); }
+
+    /* ── Status dot ───────────────────────────────────────────────────────── */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+                  margin-right: 6px; }
+    .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot-yellow { background: var(--yellow); }
+    .dot-red { background: var(--red); }
+
+    /* ── Toast ────────────────────────────────────────────────────────────── */
+    #toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface);
+             border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px;
+             font-size: 13px; opacity: 0; transform: translateY(10px);
+             transition: all .25s; pointer-events: none; max-width: 320px; z-index: 100; }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Empty state ──────────────────────────────────────────────────────── */
+    .empty { text-align: center; padding: 40px; color: var(--muted); }
+    .empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar nav -->
+  <nav>
+    <div class="nav-logo">
+      <h1>EagleBox</h1>
+      <span>P2P · Encrypted</span>
+    </div>
+    <button class="nav-btn active" data-panel="browse" onclick="switchPanel('browse')">
+      <span class="icon">🔍</span> Browse
+    </button>
+    <button class="nav-btn" data-panel="send" onclick="switchPanel('send')">
+      <span class="icon">📤</span> Send
+    </button>
+    <button class="nav-btn" data-panel="receive" onclick="switchPanel('receive')">
+      <span class="icon">📥</span> Receive
+    </button>
+    <button class="nav-btn" data-panel="transfers" onclick="switchPanel('transfers')">
+      <span class="icon">⚡</span> Transfers
+    </button>
+    <button class="nav-btn" data-panel="identity" onclick="switchPanel('identity')">
+      <span class="icon">🔑</span> Identity
+    </button>
+  </nav>
+
+  <!-- Main content -->
+  <main>
+
+    <!-- ── Browse panel ─────────────────────────────────────────────────── -->
+    <div id="panel-browse" class="panel active">
+      <h2>🌐 Public File Index</h2>
+      <p style="color:var(--muted);margin-bottom:16px">
+        All files shared on the EagleBox network. Filenames are public —
+        you need the share key to decrypt the download.
+      </p>
+      <div class="input-row">
+        <input id="search-input" class="input" placeholder="Search by filename…" oninput="onSearch()" />
+        <button class="btn btn-secondary" onclick="refreshIndex()">⟳ Refresh</button>
+      </div>
+      <div id="browse-table-wrap">
+        <div class="empty"><div class="empty-icon">🦅</div>
+          <p>Connecting to the swarm…</p></div>
+      </div>
+    </div>
+
+    <!-- ── Send panel ───────────────────────────────────────────────────── -->
+    <div id="panel-send" class="panel">
+      <h2>📤 Share a File</h2>
+      <div class="drop-zone" id="drop-zone"
+           onclick="pickFile()"
+           ondragover="event.preventDefault(); this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="onDrop(event)">
+        <div class="dz-icon">📂</div>
+        <p><strong>Click to choose a file</strong> or drag &amp; drop here</p>
+        <p style="margin-top:6px;font-size:12px">Any file type · End-to-end encrypted · Filename is public</p>
+      </div>
+      <div id="send-list"></div>
+    </div>
+
+    <!-- ── Receive panel ────────────────────────────────────────────────── -->
+    <div id="panel-receive" class="panel">
+      <h2>📥 Download a File</h2>
+      <div class="card">
+        <h3>Enter share key</h3>
+        <p style="color:var(--muted);margin-bottom:12px">
+          Paste the share code you received. The key decrypts the file — keep it private.
+        </p>
+        <div class="input-row">
+          <input id="receive-code" class="input" placeholder="Share code (base64url…)" />
+        </div>
+        <button class="btn btn-primary" onclick="startReceive()">⬇ Download</button>
+      </div>
+      <div id="receive-list"></div>
+    </div>
+
+    <!-- ── Transfers panel ──────────────────────────────────────────────── -->
+    <div id="panel-transfers" class="panel">
+      <h2>⚡ Active Transfers</h2>
+      <div id="transfer-list">
+        <div class="empty"><div class="empty-icon">💤</div><p>No active transfers</p></div>
+      </div>
+    </div>
+
+    <!-- ── Identity panel ───────────────────────────────────────────────── -->
+    <div id="panel-identity" class="panel">
+      <h2>🔑 Identity Keypair</h2>
+      <div class="card">
+        <p style="color:var(--muted);margin-bottom:16px">
+          Generate an Ed25519 keypair for peer identity and future signed announcements.
+          Your private key never leaves this device.
+        </p>
+        <button class="btn btn-primary" onclick="doKeygen()">Generate keypair</button>
+      </div>
+      <div id="keygen-result"></div>
+    </div>
+
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const state = {
+  indexRecords: {},   // shareCode → record
+  sends: {},          // shareCode → { filename, size, done, total, peers }
+  receives: {},       // transferId → { shareCode, done, total, outPath }
+}
+
+// ── Nav ───────────────────────────────────────────────────────────────────────
+function switchPanel (name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('panel-' + name).classList.add('active')
+  document.querySelector(`[data-panel="${name}"]`).classList.add('active')
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer
+function toast (msg, type = 'info') {
+  const el = document.getElementById('toast')
+  el.textContent = msg
+  el.style.borderColor = type === 'error' ? 'var(--red)' : type === 'success' ? 'var(--green)' : 'var(--border)'
+  el.classList.add('show')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3500)
+}
+
+function fmtBytes (b) {
+  if (b < 1024) return b + ' B'
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KiB'
+  if (b < 1073741824) return (b/1048576).toFixed(1) + ' MiB'
+  return (b/1073741824).toFixed(2) + ' GiB'
+}
+
+function fileIcon (name) {
+  const ext = name.split('.').pop()?.toLowerCase()
+  const map = { pdf:'📄', zip:'🗜️', tar:'🗜️', gz:'🗜️', mp4:'🎬', mkv:'🎬',
+                mp3:'🎵', flac:'🎵', jpg:'🖼️', jpeg:'🖼️', png:'🖼️',
+                gif:'🖼️', txt:'📝', js:'💻', ts:'💻', json:'💻', md:'📝' }
+  return map[ext] || '📁'
+}
+
+// ── Browse / Index ────────────────────────────────────────────────────────────
+function renderBrowse () {
+  const query = document.getElementById('search-input').value.toLowerCase()
+  const records = Object.values(state.indexRecords)
+    .filter(r => !query || r.filename.toLowerCase().includes(query))
+    .sort((a, b) => b.addedAt - a.addedAt)
+
+  const wrap = document.getElementById('browse-table-wrap')
+  if (records.length === 0) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">🦅</div>
+      <p>${query ? 'No matches found.' : 'No files found on the network yet.'}</p></div>`
+    return
+  }
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th></th><th>Filename</th><th>Size</th><th>Type</th><th>Peer</th><th></th>
+    </tr></thead>
+    <tbody>
+    ${records.map(r => `
+      <tr>
+        <td>${fileIcon(r.filename)}</td>
+        <td><span class="file-name" title="${r.filename}">${r.filename}</span></td>
+        <td style="color:var(--muted)">${fmtBytes(r.size)}</td>
+        <td>${r.mimeType ? `<span class="badge badge-blue">${r.mimeType.split('/')[1]}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+        <td style="color:var(--muted);font-family:monospace;font-size:11px">${r.peerId?.slice(0,8) ?? '?'}…</td>
+        <td>
+          <button class="btn btn-secondary" style="font-size:12px"
+            onclick="downloadFromIndex('${r.shareCode}', '${r.filename}')">
+            ⬇ Download
+          </button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`
+}
+
+function onSearch () { renderBrowse() }
+
+async function refreshIndex () {
+  const records = await window.eaglebox.indexGetAll()
+  for (const r of records) state.indexRecords[r.shareCode] = r
+  renderBrowse()
+  toast('Index refreshed')
+}
+
+async function downloadFromIndex (shareCode, filename) {
+  const dir = await window.eaglebox.saveDirDialog()
+  if (!dir) return
+  const { transferId } = await window.eaglebox.receiveStart(shareCode, dir)
+  state.receives[transferId] = { shareCode, filename, done: 0, total: 0 }
+  switchPanel('transfers')
+  renderTransfers()
+  toast(`Downloading ${filename}…`)
+}
+
+// ── Send ──────────────────────────────────────────────────────────────────────
+async function pickFile () {
+  const paths = await window.eaglebox.openFileDialog()
+  for (const p of paths) startSend(p)
+}
+
+function onDrop (e) {
+  e.preventDefault()
+  document.getElementById('drop-zone').classList.remove('drag-over')
+  for (const f of e.dataTransfer.files) startSend(f.path)
+}
+
+async function startSend (filePath) {
+  try {
+    const info = await window.eaglebox.sendStart(filePath)
+    state.sends[info.shareCode] = { ...info, done: 0, peers: 0 }
+    renderSendList()
+    toast(`Sharing ${info.filename} — code copied!`, 'success')
+    navigator.clipboard.writeText(info.shareCode).catch(() => {})
+  } catch (err) {
+    toast('Send failed: ' + err.message, 'error')
+  }
+}
+
+function renderSendList () {
+  const list = document.getElementById('send-list')
+  const entries = Object.values(state.sends)
+  if (!entries.length) { list.innerHTML = ''; return }
+  list.innerHTML = entries.map(s => `
+    <div class="card">
+      <div class="file-row">
+        <div class="file-icon">${fileIcon(s.filename)}</div>
+        <div class="file-info">
+          <div class="file-name">${s.filename}</div>
+          <div class="file-meta">${fmtBytes(s.size)} · ${s.peers} peer(s) connected</div>
+        </div>
+        <div class="file-actions">
+          <button class="btn btn-secondary" onclick="copyCode('${s.shareCode}')">📋 Copy key</button>
+          <button class="btn btn-danger" onclick="stopSend('${s.shareCode}')">⏹ Stop</button>
+        </div>
+      </div>
+      <div class="share-code">${s.shareCode}</div>
+      ${s.total > 0 ? `
+      <div class="progress-wrap">
+        <div class="progress-label"><span>Uploading…</span><span>${s.done}/${s.total} chunks</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${s.total ? (s.done/s.total*100) : 0}%"></div></div>
+      </div>` : ''}
+    </div>`).join('')
+}
+
+function copyCode (code) {
+  navigator.clipboard.writeText(code)
+  toast('Share key copied to clipboard!', 'success')
+}
+
+async function stopSend (shareCode) {
+  await window.eaglebox.sendStop(shareCode)
+  delete state.sends[shareCode]
+  renderSendList()
+  toast('Sharing stopped')
+}
+
+// ── Receive ───────────────────────────────────────────────────────────────────
+async function startReceive () {
+  const code = document.getElementById('receive-code').value.trim()
+  if (!code) { toast('Enter a share code first', 'error'); return }
+  const dir = await window.eaglebox.saveDirDialog()
+  if (!dir) return
+  try {
+    const { transferId } = await window.eaglebox.receiveStart(code, dir)
+    state.receives[transferId] = { shareCode: code, done: 0, total: 0 }
+    switchPanel('transfers')
+    renderTransfers()
+    toast('Download started!')
+    document.getElementById('receive-code').value = ''
+  } catch (err) {
+    toast('Receive failed: ' + err.message, 'error')
+  }
+}
+
+// ── Transfers ─────────────────────────────────────────────────────────────────
+function renderTransfers () {
+  const list = document.getElementById('transfer-list')
+  const sends = Object.values(state.sends).filter(s => s.total > 0)
+  const receives = Object.values(state.receives)
+
+  if (!sends.length && !receives.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">💤</div><p>No active transfers</p></div>'
+    return
+  }
+
+  list.innerHTML = [
+    ...sends.map(s => `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span class="status-dot dot-green"></span>
+          <strong>↑ ${s.filename}</strong>
+          <span style="color:var(--muted);font-size:12px;margin-left:auto">${fmtBytes(s.size)}</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label"><span>${s.peers} peer(s)</span><span>${s.done}/${s.total}</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${s.total ? (s.done/s.total*100) : 0}%"></div></div>
+        </div>
+      </div>`),
+    ...receives.map((r, i) => `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span class="status-dot ${r.outPath ? 'dot-green' : 'dot-yellow'}"></span>
+          <strong>↓ ${r.filename || r.shareCode.slice(0,16) + '…'}</strong>
+          ${r.outPath ? `<button class="btn btn-secondary" style="margin-left:auto;font-size:11px"
+            onclick="window.eaglebox.showInFolder('${r.outPath.replace(/\\/g, '\\\\')}')">📂 Show</button>` : ''}
+        </div>
+        ${r.total > 0 ? `
+        <div class="progress-wrap">
+          <div class="progress-label"><span>${r.outPath ? '✅ Complete' : 'Downloading…'}</span><span>${r.done}/${r.total}</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${r.total ? (r.done/r.total*100) : 0}%"></div></div>
+        </div>` : '<div style="color:var(--muted);font-size:12px">Connecting to sender…</div>'}
+      </div>`)
+  ].join('')
+}
+
+// ── Identity ──────────────────────────────────────────────────────────────────
+async function doKeygen () {
+  const kp = await window.eaglebox.keygen()
+  document.getElementById('keygen-result').innerHTML = `
+    <div class="card">
+      <h3>Public key <span style="color:var(--muted);font-weight:400;font-size:12px">(share freely)</span></h3>
+      <div class="share-code" style="border-color:var(--accent)">${kp.publicKey}</div>
+      <h3 style="margin-top:16px">Private key <span style="color:var(--red);font-weight:400;font-size:12px">⚠ Keep secret</span></h3>
+      <div class="share-code" style="border-color:var(--red)">${kp.privateKey}</div>
+      <p style="color:var(--muted);font-size:12px;margin-top:12px">
+        Store your private key securely. It cannot be recovered.
+      </p>
+    </div>`
+}
+
+// ── Event wiring ──────────────────────────────────────────────────────────────
+window.eaglebox.on('index:record', (record) => {
+  state.indexRecords[record.shareCode] = record
+  if (document.getElementById('panel-browse').classList.contains('active')) renderBrowse()
+})
+
+window.eaglebox.on('send:progress', ({ shareCode, done, total }) => {
+  if (state.sends[shareCode]) { state.sends[shareCode].done = done; state.sends[shareCode].total = total }
+  renderSendList()
+  renderTransfers()
+})
+
+window.eaglebox.on('send:peer-connected', ({ shareCode }) => {
+  if (state.sends[shareCode]) state.sends[shareCode].peers++
+  renderSendList()
+})
+
+window.eaglebox.on('send:peer-done', ({ shareCode }) => {
+  if (state.sends[shareCode]) state.sends[shareCode].peers = Math.max(0, state.sends[shareCode].peers - 1)
+  renderSendList()
+  toast('Transfer to peer complete', 'success')
+})
+
+window.eaglebox.on('receive:progress', ({ transferId, done, total }) => {
+  if (state.receives[transferId]) { state.receives[transferId].done = done; state.receives[transferId].total = total }
+  renderTransfers()
+})
+
+window.eaglebox.on('receive:done', ({ transferId, outPath, meta }) => {
+  if (state.receives[transferId]) {
+    state.receives[transferId].outPath = outPath
+    state.receives[transferId].filename = meta?.filename
+    state.receives[transferId].done = meta?.totalChunks
+    state.receives[transferId].total = meta?.totalChunks
+  }
+  renderTransfers()
+  toast(`Downloaded: ${meta?.filename}`, 'success')
+})
+
+window.eaglebox.on('send:error', ({ shareCode, message }) => toast('Send error: ' + message, 'error'))
+window.eaglebox.on('receive:error', ({ message }) => toast('Receive error: ' + message, 'error'))
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+refreshIndex()
+</script>
+</body>
+</html>

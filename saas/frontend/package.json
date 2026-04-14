@@ -1,0 +1,13 @@
+{
+  "name": "eaglebox-saas-frontend",
+  "version": "1.0.0",
+  "description": "EagleBox SaaS web frontend",
+  "type": "module",
+  "scripts": {
+    "dev": "node serve.js",
+    "start": "node serve.js"
+  },
+  "dependencies": {
+    "serve": "^14.2.0"
+  }
+}

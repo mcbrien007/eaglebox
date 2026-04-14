@@ -1,0 +1,27 @@
+{
+  "name": "eaglebox-desktop",
+  "version": "1.0.0",
+  "description": "EagleBox desktop application",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.eaglebox.desktop",
+    "productName": "EagleBox",
+    "directories": { "output": "dist" },
+    "files": ["src/**/*", "node_modules/**/*"],
+    "win": { "target": "nsis", "icon": "assets/icon.ico" },
+    "mac": { "target": "dmg", "icon": "assets/icon.icns" },
+    "linux": { "target": "AppImage" }
+  },
+  "dependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.0.0",
+    "hyperswarm": "^4.7.0",
+    "b4a": "^1.6.6",
+    "sodium-native": "^4.1.0"
+  }
+}
