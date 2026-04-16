@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('eaglebox', {
   saveDirDialog: () => ipcRenderer.invoke('dialog:saveDir'),
 
   // ── Send ───────────────────────────────────────────────────────────────────
-  sendStart: (filePath) => ipcRenderer.invoke('send:start', { filePath }),
+  sendStart: (filePath, isPublic) => ipcRenderer.invoke('send:start', { filePath, isPublic: !!isPublic }),
   sendStop: (shareCode) => ipcRenderer.invoke('send:stop', { shareCode }),
 
   // ── Receive ────────────────────────────────────────────────────────────────
@@ -40,7 +40,8 @@ contextBridge.exposeInMainWorld('eaglebox', {
       'send:progress', 'send:peer-connected', 'send:peer-done', 'send:error',
       'receive:progress', 'receive:done', 'receive:error',
       'index:record',
-      'chat:message', 'chat:peer-joined', 'chat:peer-left'
+      'chat:message', 'chat:peer-joined', 'chat:peer-left',
+      'navigate', 'tray:share-files'
     ]
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (_event, data) => cb(data))

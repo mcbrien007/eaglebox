@@ -199,7 +199,32 @@
            ondrop="onDrop(event)">
         <div class="dz-icon">📂</div>
         <p><strong>Click to choose a file</strong> or drag &amp; drop here</p>
-        <p style="margin-top:6px;font-size:12px">Any file type · End-to-end encrypted · Filename is public</p>
+        <p style="margin-top:6px;font-size:12px">Any file type · Filename is always public</p>
+      </div>
+
+      <!-- Encryption toggle -->
+      <div class="card" style="padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+        <div style="flex:1">
+          <strong id="enc-label">🔐 Encryption: ON</strong>
+          <p style="color:var(--muted);font-size:12px;margin-top:3px" id="enc-desc">
+            Receivers need the share key to decrypt. Default and recommended.
+          </p>
+        </div>
+        <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+          <input type="checkbox" id="enc-toggle" checked onchange="updateEncToggle()"
+                 style="opacity:0;width:0;height:0">
+          <span id="enc-slider" style="
+            position:absolute;cursor:pointer;inset:0;background:var(--green);
+            border-radius:24px;transition:.2s;
+          ">
+            <span style="
+              position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;
+              background:white;border-radius:50%;transition:.2s;
+              transform: translateX(20px);
+              display:block;
+            " id="enc-knob"></span>
+          </span>
+        </label>
       </div>
       <div id="send-list"></div>
     </div>
@@ -361,6 +386,9 @@ function renderBrowse () {
         <td>${r.mimeType ? `<span class="badge badge-blue">${r.mimeType.split('/')[1]}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
         <td style="color:var(--muted);font-family:monospace;font-size:11px">${r.peerId?.slice(0,8) ?? '?'}…</td>
         <td>
+          ${r.public
+            ? `<span class="badge" style="background:rgba(251,191,36,.1);color:var(--yellow);margin-right:6px">🔓 Public</span>`
+            : `<span class="badge badge-green" style="margin-right:6px">🔐</span>`}
           <button class="btn btn-secondary" style="font-size:12px"
             onclick="downloadFromIndex('${r.shareCode}', '${r.filename}')">
             ⬇ Download
@@ -390,6 +418,21 @@ async function downloadFromIndex (shareCode, filename) {
   toast(`Downloading ${filename}…`)
 }
 
+// ── Encryption toggle ─────────────────────────────────────────────────────────
+function updateEncToggle () {
+  const on = document.getElementById('enc-toggle').checked
+  document.getElementById('enc-label').textContent   = on ? '🔐 Encryption: ON' : '🔓 Encryption: OFF'
+  document.getElementById('enc-desc').textContent    = on
+    ? 'Receivers need the share key to decrypt. Default and recommended.'
+    : 'File is shared publicly — anyone can download without a key.'
+  document.getElementById('enc-slider').style.background = on ? 'var(--green)' : 'var(--red)'
+  document.getElementById('enc-knob').style.transform    = on ? 'translateX(20px)' : 'translateX(0)'
+}
+
+function isEncryptionEnabled () {
+  return document.getElementById('enc-toggle').checked
+}
+
 // ── Send ──────────────────────────────────────────────────────────────────────
 async function pickFile () {
   const paths = await window.eaglebox.openFileDialog()
@@ -403,12 +446,17 @@ function onDrop (e) {
 }
 
 async function startSend (filePath) {
+  const isPublic = !isEncryptionEnabled()
   try {
-    const info = await window.eaglebox.sendStart(filePath)
-    state.sends[info.shareCode] = { ...info, done: 0, peers: 0 }
+    const info = await window.eaglebox.sendStart(filePath, isPublic)
+    state.sends[info.shareCode] = { ...info, done: 0, peers: 0, isPublic }
     renderSendList()
-    toast(`Sharing ${info.filename} — code copied!`, 'success')
-    navigator.clipboard.writeText(info.shareCode).catch(() => {})
+    if (isPublic) {
+      toast(`Sharing ${info.filename} publicly (no key needed)`, 'success')
+    } else {
+      toast(`Sharing ${info.filename} — key copied!`, 'success')
+      navigator.clipboard.writeText(info.shareCode).catch(() => {})
+    }
   } catch (err) {
     toast('Send failed: ' + err.message, 'error')
   }
@@ -424,7 +472,7 @@ function renderSendList () {
         <div class="file-icon">${fileIcon(s.filename)}</div>
         <div class="file-info">
           <div class="file-name">${s.filename}</div>
-          <div class="file-meta">${fmtBytes(s.size)} · ${s.peers} peer(s) connected</div>
+          <div class="file-meta">${fmtBytes(s.size)} · ${s.peers} peer(s) connected · ${s.isPublic ? '<span style="color:var(--yellow)">🔓 Public</span>' : '<span style="color:var(--green)">🔐 Encrypted</span>'}</div>
         </div>
         <div class="file-actions">
           <button class="btn btn-secondary" onclick="copyCode('${s.shareCode}')">📋 Copy key</button>
@@ -661,6 +709,13 @@ window.eaglebox.on('chat:peer-left', (data) => {
   chatPeers = Math.max(0, chatPeers - 1)
   document.getElementById('chat-peer-count').textContent = chatPeers + ' peer' + (chatPeers !== 1 ? 's' : '')
   appendChatSystem(`${data.nickname} left`)
+})
+
+// ── Tray events ───────────────────────────────────────────────────────────────
+window.eaglebox.on('navigate', (panel) => switchPanel(panel))
+window.eaglebox.on('tray:share-files', (paths) => {
+  switchPanel('send')
+  for (const p of paths) startSend(p)
 })
 
 // ── Init ──────────────────────────────────────────────────────────────────────
