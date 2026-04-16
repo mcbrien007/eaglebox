@@ -24,6 +24,11 @@
  *  GET    /api/download/:shareCode/chunk/:index
  *                                   → raw encrypted chunk bytes
  *  GET    /api/events               SSE stream of new file announcements
+ *
+ * Chat API (WebSocket-style via SSE + POST):
+ *  POST   /api/chat/:roomId/send     { nickname, text }
+ *  GET    /api/chat/:roomId/events   SSE stream of chat messages for room
+ *  GET    /api/chat/rooms            list of active room names
  */
 
 import express from 'express'
@@ -230,6 +235,80 @@ app.get('/api/events', (req, res) => {
   }
 
   req.on('close', () => sseClients.delete(res))
+})
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+// roomId → Set of SSE response objects
+const chatClients = new Map()
+// roomId → [ { id, nickname, text, ts } ]  (in-memory, last 200 msgs)
+const chatHistory = new Map()
+
+function getChatClients (roomId) {
+  if (!chatClients.has(roomId)) chatClients.set(roomId, new Set())
+  return chatClients.get(roomId)
+}
+function getChatHistory (roomId) {
+  if (!chatHistory.has(roomId)) chatHistory.set(roomId, [])
+  return chatHistory.get(roomId)
+}
+
+// List active rooms
+app.get('/api/chat/rooms', (_req, res) => {
+  const rooms = Array.from(chatClients.entries())
+    .filter(([, clients]) => clients.size > 0)
+    .map(([roomId, clients]) => ({ roomId, peers: clients.size }))
+  res.json(rooms)
+})
+
+// SSE stream for a room
+app.get('/api/chat/:roomId/events', (req, res) => {
+  const { roomId } = req.params
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.flushHeaders()
+
+  const clients = getChatClients(roomId)
+  clients.add(res)
+  res.write(': connected\n\n')
+
+  // Replay last 50 messages
+  for (const msg of getChatHistory(roomId).slice(-50)) {
+    res.write(`event: msg\ndata: ${JSON.stringify(msg)}\n\n`)
+  }
+
+  req.on('close', () => {
+    clients.delete(res)
+    if (clients.size === 0) chatClients.delete(roomId)
+  })
+})
+
+// Post a message
+app.post('/api/chat/:roomId/send', (req, res) => {
+  const { roomId } = req.params
+  const { nickname, text } = req.body
+  if (!nickname || !text) return res.status(400).json({ error: 'nickname and text required' })
+  if (text.length > 2000) return res.status(400).json({ error: 'Message too long' })
+
+  const msg = {
+    id: uuidv4(),
+    nickname: String(nickname).slice(0, 32),
+    text: String(text).slice(0, 2000),
+    ts: Date.now()
+  }
+
+  // Store in history
+  const history = getChatHistory(roomId)
+  history.push(msg)
+  if (history.length > 200) history.shift()
+
+  // Broadcast to SSE clients in this room
+  const payload = `event: msg\ndata: ${JSON.stringify(msg)}\n\n`
+  for (const client of getChatClients(roomId)) {
+    try { client.write(payload) } catch (_) {}
+  }
+
+  res.json({ ok: true })
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

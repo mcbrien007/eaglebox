@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld('eaglebox', {
   indexGetAll: () => ipcRenderer.invoke('index:getAll'),
   indexSearch: (query) => ipcRenderer.invoke('index:search', { query }),
 
+  // ── Chat ───────────────────────────────────────────────────────────────────
+  chatJoin:      (roomId, nickname) => ipcRenderer.invoke('chat:join',  { roomId, nickname }),
+  chatSend:      (roomId, text)     => ipcRenderer.invoke('chat:send',  { roomId, text }),
+  chatLeave:     (roomId)           => ipcRenderer.invoke('chat:leave', { roomId }),
+  chatListRooms: ()                 => ipcRenderer.invoke('chat:listRooms'),
+
   // ── Keygen ─────────────────────────────────────────────────────────────────
   keygen: () => ipcRenderer.invoke('keygen'),
 
@@ -33,7 +39,8 @@ contextBridge.exposeInMainWorld('eaglebox', {
     const allowed = [
       'send:progress', 'send:peer-connected', 'send:peer-done', 'send:error',
       'receive:progress', 'receive:done', 'receive:error',
-      'index:record'
+      'index:record',
+      'chat:message', 'chat:peer-joined', 'chat:peer-left'
     ]
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (_event, data) => cb(data))

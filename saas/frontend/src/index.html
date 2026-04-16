@@ -267,6 +267,68 @@
     <div id="file-count-label" style="color:var(--muted);font-size:12px;margin-top:8px;text-align:right"></div>
   </div>
 
+  <!-- ── Chat ──────────────────────────────────────────────────────────── -->
+  <div style="margin-top:48px" id="chat">
+    <div class="section-header">
+      <h2>💬 Encrypted Chat Rooms</h2>
+      <span class="count" id="chat-room-count">0 rooms</span>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:20px">
+      Peer-to-peer encrypted chat. The room name is the shared secret — messages are encrypted
+      end-to-end and never stored in plaintext.
+    </p>
+
+    <div class="grid-2" style="margin-bottom:0">
+      <!-- Join panel -->
+      <div class="card">
+        <h2>Join a room</h2>
+        <input id="web-chat-nickname" class="input" placeholder="Your nickname" />
+        <input id="web-chat-room"     class="input" placeholder="Room name (shared secret)" />
+        <button class="btn btn-primary" style="width:100%" onclick="webChatJoin()">
+          💬 Join room
+        </button>
+        <div id="web-chat-join-status" class="status-msg"></div>
+      </div>
+
+      <!-- Active rooms -->
+      <div class="card">
+        <h2>Active rooms</h2>
+        <div id="web-rooms-list" style="color:var(--muted);font-size:13px">
+          Loading…
+        </div>
+        <button class="btn btn-secondary" style="margin-top:12px;font-size:12px"
+                onclick="loadRooms()">⟳ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Chat window (hidden until joined) -->
+    <div id="web-chat-window" style="display:none;margin-top:20px">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);gap:10px">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);
+                       box-shadow:0 0 5px var(--green);display:inline-block"></span>
+          <strong id="web-chat-room-label"></strong>
+          <span id="web-chat-peer-count" style="color:var(--muted);font-size:12px"></span>
+          <button class="btn btn-secondary" style="margin-left:auto;font-size:12px"
+                  onclick="webChatLeave()">Leave</button>
+        </div>
+        <div id="web-chat-messages" style="
+          height:320px; overflow-y:auto; padding:16px;
+          display:flex; flex-direction:column; gap:8px; background:var(--bg)">
+          <div id="web-chat-placeholder" style="text-align:center;color:var(--muted);
+               font-size:12px;margin:auto">Waiting for others to join…</div>
+        </div>
+        <div style="display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border)">
+          <input id="web-chat-input" class="input"
+                 placeholder="Type a message and press Enter…"
+                 onkeydown="if(event.key==='Enter')webChatSend()"
+                 style="margin:0" />
+          <button class="btn btn-primary" onclick="webChatSend()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <footer>

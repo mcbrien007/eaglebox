@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "EagleBox desktop application",
   "main": "src/main.js",
+  "type": "module",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",

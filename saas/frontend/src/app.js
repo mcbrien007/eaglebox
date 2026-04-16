@@ -315,4 +315,130 @@ async function init () {
   }
 }
 
+// ── Web Chat ──────────────────────────────────────────────────────────────────
+
+let webChatRoom = null
+let webChatEvt  = null
+
+async function webChatJoin () {
+  const nickname = document.getElementById('web-chat-nickname').value.trim() || 'Anonymous'
+  const roomId   = document.getElementById('web-chat-room').value.trim()
+  const status   = document.getElementById('web-chat-join-status')
+
+  if (!roomId) { status.textContent = 'Enter a room name'; status.className = 'status-msg error'; return }
+
+  // Leave previous room if any
+  if (webChatRoom) webChatLeave()
+
+  webChatRoom = roomId
+  window._webChatNickname = nickname
+
+  // Subscribe to SSE
+  webChatEvt = new EventSource(`${API}/chat/${encodeURIComponent(roomId)}/events`)
+  webChatEvt.addEventListener('msg', (e) => {
+    const msg = JSON.parse(e.data)
+    webAppendMsg(msg, msg.nickname === nickname)
+    updatePeerCount()
+  })
+  webChatEvt.onerror = () => {
+    status.textContent = '⚠ Connection lost. Refresh to reconnect.'
+    status.className = 'status-msg error'
+  }
+
+  // Show chat window
+  document.getElementById('web-chat-window').style.display = 'block'
+  document.getElementById('web-chat-room-label').textContent = '# ' + roomId
+  document.getElementById('web-chat-messages').innerHTML =
+    '<div id="web-chat-placeholder" style="text-align:center;color:var(--muted);font-size:12px;margin:auto">Joined! Waiting for messages…</div>'
+
+  status.textContent = '✅ Joined #' + roomId
+  status.className = 'status-msg success'
+
+  loadRooms()
+}
+
+async function webChatLeave () {
+  if (webChatEvt) { webChatEvt.close(); webChatEvt = null }
+  webChatRoom = null
+  document.getElementById('web-chat-window').style.display = 'none'
+  document.getElementById('web-chat-join-status').textContent = ''
+  loadRooms()
+}
+
+async function webChatSend () {
+  const input    = document.getElementById('web-chat-input')
+  const text     = input.value.trim()
+  const nickname = window._webChatNickname || 'Anonymous'
+  if (!text || !webChatRoom) return
+  input.value = ''
+  await fetch(`${API}/chat/${encodeURIComponent(webChatRoom)}/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname, text })
+  })
+}
+
+function webAppendMsg (msg, isOwn) {
+  const box = document.getElementById('web-chat-messages')
+  const ph  = document.getElementById('web-chat-placeholder')
+  if (ph) ph.remove()
+
+  const time = new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const el   = document.createElement('div')
+  el.style.cssText = `display:flex;flex-direction:column;align-items:${isOwn ? 'flex-end' : 'flex-start'}`
+  el.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:2px">
+      ${isOwn ? '' : `<strong style="color:#38bdf8">${msg.nickname}</strong> · `}${time}
+    </div>
+    <div style="
+      background:${isOwn ? '#38bdf8' : '#1e293b'};
+      color:${isOwn ? '#0f172a' : '#e2e8f0'};
+      border:1px solid ${isOwn ? 'transparent' : '#334155'};
+      border-radius:${isOwn ? '12px 12px 2px 12px' : '12px 12px 12px 2px'};
+      padding:8px 12px;max-width:320px;word-break:break-word;font-size:13px">
+      ${msg.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+    </div>`
+  box.appendChild(el)
+  box.scrollTop = box.scrollHeight
+}
+
+async function loadRooms () {
+  try {
+    const rooms = await fetch(`${API}/chat/rooms`).then(r => r.json())
+    const el    = document.getElementById('web-rooms-list')
+    const countEl = document.getElementById('chat-room-count')
+    if (countEl) countEl.textContent = rooms.length + ' room' + (rooms.length !== 1 ? 's' : '')
+    if (!el) return
+    if (!rooms.length) { el.textContent = 'No active rooms yet.'; return }
+    el.innerHTML = rooms.map(r => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;
+                  border-bottom:1px solid #334155">
+        <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block"></span>
+        <strong># ${r.roomId}</strong>
+        <span style="color:#64748b;font-size:12px;margin-left:auto">${r.peers} peer${r.peers !== 1 ? 's' : ''}</span>
+        <button class="btn-sm" onclick="quickJoin('${r.roomId}')"
+                style="font-size:11px;padding:3px 8px;background:transparent;
+                       border:1px solid #334155;color:#e2e8f0;border-radius:4px;cursor:pointer">
+          Join
+        </button>
+      </div>`).join('')
+  } catch (_) {}
+}
+
+async function quickJoin (roomId) {
+  document.getElementById('web-chat-room').value = roomId
+  webChatJoin()
+}
+
+function updatePeerCount () {
+  // approximate: count distinct nicknames in current history
+}
+
+// Expose for inline HTML onclick handlers
+window.webChatJoin  = webChatJoin
+window.webChatLeave = webChatLeave
+window.webChatSend  = webChatSend
+window.loadRooms    = loadRooms
+window.quickJoin    = quickJoin
+
 document.addEventListener('DOMContentLoaded', init)

@@ -161,6 +161,9 @@
     <button class="nav-btn" data-panel="transfers" onclick="switchPanel('transfers')">
       <span class="icon">⚡</span> Transfers
     </button>
+    <button class="nav-btn" data-panel="chat" onclick="switchPanel('chat')">
+      <span class="icon">💬</span> Chat
+    </button>
     <button class="nav-btn" data-panel="identity" onclick="switchPanel('identity')">
       <span class="icon">🔑</span> Identity
     </button>
@@ -222,6 +225,53 @@
       <h2>⚡ Active Transfers</h2>
       <div id="transfer-list">
         <div class="empty"><div class="empty-icon">💤</div><p>No active transfers</p></div>
+      </div>
+    </div>
+
+    <!-- ── Chat panel ──────────────────────────────────────────────────── -->
+    <div id="panel-chat" class="panel">
+      <h2>💬 Encrypted P2P Chat</h2>
+      <p style="color:var(--muted);margin-bottom:16px">
+        Messages are AES-256-GCM encrypted. The room name is the shared secret — only peers
+        who know the room name can read messages.
+      </p>
+
+      <!-- Join form -->
+      <div class="card" id="chat-join-card">
+        <h3>Join a room</h3>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="chat-nickname" class="input" placeholder="Your nickname" style="max-width:180px" />
+          <input id="chat-room-input" class="input" placeholder="Room name (shared secret)" />
+          <button class="btn btn-primary" onclick="chatJoin()">Join</button>
+        </div>
+        <p style="color:var(--muted);font-size:12px">
+          Anyone with the same room name will appear in the chat. The room name encrypts all messages.
+        </p>
+      </div>
+
+      <!-- Active room -->
+      <div id="chat-room-ui" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span class="status-dot dot-green"></span>
+          <strong id="chat-room-label"></strong>
+          <span id="chat-peer-count" style="color:var(--muted);font-size:12px"></span>
+          <button class="btn btn-danger" style="margin-left:auto" onclick="chatLeave()">Leave room</button>
+        </div>
+
+        <div id="chat-messages" style="
+          height:340px; overflow-y:auto; background:var(--bg); border:1px solid var(--border);
+          border-radius:var(--r); padding:14px; margin-bottom:10px; display:flex;
+          flex-direction:column; gap:8px;">
+          <div style="text-align:center;color:var(--muted);font-size:12px;margin:auto">
+            Waiting for peers…
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <input id="chat-input" class="input" placeholder="Type a message…"
+                 onkeydown="if(event.key==='Enter')chatSendMsg()" style="margin:0" />
+          <button class="btn btn-primary" onclick="chatSendMsg()">Send</button>
+        </div>
       </div>
     </div>
 
@@ -517,6 +567,101 @@ window.eaglebox.on('receive:done', ({ transferId, outPath, meta }) => {
 
 window.eaglebox.on('send:error', ({ shareCode, message }) => toast('Send error: ' + message, 'error'))
 window.eaglebox.on('receive:error', ({ message }) => toast('Receive error: ' + message, 'error'))
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+let currentRoom = null
+let chatPeers = 0
+
+async function chatJoin () {
+  const nickname = document.getElementById('chat-nickname').value.trim() || 'Anonymous'
+  const roomId   = document.getElementById('chat-room-input').value.trim()
+  if (!roomId) { toast('Enter a room name', 'error'); return }
+
+  await window.eaglebox.chatJoin(roomId, nickname)
+  currentRoom = roomId
+  chatPeers = 0
+
+  document.getElementById('chat-join-card').style.display = 'none'
+  document.getElementById('chat-room-ui').style.display = 'block'
+  document.getElementById('chat-room-label').textContent = '# ' + roomId
+  document.getElementById('chat-peer-count').textContent = '0 peers'
+  document.getElementById('chat-messages').innerHTML =
+    '<div style="text-align:center;color:var(--muted);font-size:12px;margin:auto">Joined — waiting for peers…</div>'
+  toast('Joined #' + roomId, 'success')
+}
+
+async function chatLeave () {
+  if (!currentRoom) return
+  await window.eaglebox.chatLeave(currentRoom)
+  currentRoom = null
+  chatPeers = 0
+  document.getElementById('chat-join-card').style.display = 'block'
+  document.getElementById('chat-room-ui').style.display = 'none'
+  toast('Left room')
+}
+
+async function chatSendMsg () {
+  const input = document.getElementById('chat-input')
+  const text = input.value.trim()
+  if (!text || !currentRoom) return
+  input.value = ''
+  await window.eaglebox.chatSend(currentRoom, text)
+}
+
+function appendChatMessage (msg, isOwn) {
+  const box = document.getElementById('chat-messages')
+  // Remove placeholder
+  const placeholder = box.querySelector('div[style*="margin:auto"]')
+  if (placeholder) placeholder.remove()
+
+  const time = new Date(msg.ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+  const el = document.createElement('div')
+  el.style.cssText = `display:flex;flex-direction:column;align-items:${isOwn ? 'flex-end' : 'flex-start'}`
+  el.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:2px">
+      ${isOwn ? '' : `<strong style="color:var(--accent)">${msg.nickname}</strong> · `}${time}
+    </div>
+    <div style="
+      background:${isOwn ? 'var(--accent)' : 'var(--surface)'};
+      color:${isOwn ? '#0f172a' : 'var(--text)'};
+      border:1px solid ${isOwn ? 'transparent' : 'var(--border)'};
+      border-radius:${isOwn ? '12px 12px 2px 12px' : '12px 12px 12px 2px'};
+      padding:8px 12px; max-width:320px; word-break:break-word; font-size:13px;">
+      ${msg.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+    </div>`
+  box.appendChild(el)
+  box.scrollTop = box.scrollHeight
+}
+
+function appendChatSystem (text) {
+  const box = document.getElementById('chat-messages')
+  const el = document.createElement('div')
+  el.style.cssText = 'text-align:center;color:var(--muted);font-size:11px;padding:4px'
+  el.textContent = text
+  box.appendChild(el)
+  box.scrollTop = box.scrollHeight
+}
+
+// Chat events
+window.eaglebox.on('chat:message', (data) => {
+  if (data.roomId !== currentRoom) return
+  const nickname = document.getElementById('chat-nickname').value.trim() || 'Anonymous'
+  appendChatMessage(data, data.nickname === nickname && data.peerId === undefined)
+})
+
+window.eaglebox.on('chat:peer-joined', (data) => {
+  if (data.roomId !== currentRoom) return
+  chatPeers++
+  document.getElementById('chat-peer-count').textContent = chatPeers + ' peer' + (chatPeers !== 1 ? 's' : '')
+  appendChatSystem(`${data.nickname} joined`)
+})
+
+window.eaglebox.on('chat:peer-left', (data) => {
+  if (data.roomId !== currentRoom) return
+  chatPeers = Math.max(0, chatPeers - 1)
+  document.getElementById('chat-peer-count').textContent = chatPeers + ' peer' + (chatPeers !== 1 ? 's' : '')
+  appendChatSystem(`${data.nickname} left`)
+})
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 refreshIndex()
